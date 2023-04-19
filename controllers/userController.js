@@ -1,12 +1,12 @@
-const constants = require("../shared/constants");
+const userService = require("../services/userService");
 const bcrypt = require('bcryptjs');
+const { default: mongoose } = require("mongoose");
 
 const profileSetup = async (request, response) => {
     try {
         const user = request.user;
         const { name, password } = request.body;
 
-        console.log("user :", user);
         console.log("name :", name);
         console.log("password :", password);
 
@@ -22,12 +22,19 @@ const profileSetup = async (request, response) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         console.log("hased password :", hashedPassword);
 
-        //update user object in array
-        objIndex = constants.users.findIndex((obj => obj._id === user._id));
-        constants.users[objIndex].name = name;
-        constants.users[objIndex].password = hashedPassword;
-
-        console.log("updated user :", constants.users[objIndex]);
+        //update user 
+        const updatedUser = await userService.updateUser(
+            {
+                name: user.name
+            },
+            {
+                $set: { name, password: hashedPassword }
+            },
+            {
+                new: true
+            }
+        )
+        console.log("updated user :", updatedUser);
 
         return response
             .status(200)
@@ -45,7 +52,19 @@ const profileSetup = async (request, response) => {
 
 const getUserData = async (request, response) => {
     try {
-        const user = request.user;
+        let user = request.user;
+        const userId = request.params.id;
+
+        console.log("user :", user);
+        console.log("user id :", userId);
+
+        if (userId) {
+            user = await userService.findUser(
+                {
+                    _id: mongoose.Types.ObjectId(userId)
+                }
+            );
+        }
         console.log("user :", user);
 
         return response
@@ -56,6 +75,43 @@ const getUserData = async (request, response) => {
                     name: user.name
                 }
             });
+
+
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            error: "Something went wrong",
+        });
+    }
+}
+
+const getUsers = async (request, response) => {
+    try {
+        const user = request.user;
+
+        console.log("In get users controller");
+
+        const users = await userService.userAggregate([
+            {
+                $match: {
+                    _id: { $ne: user._id }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1
+                }
+            }
+        ]);
+
+        return response
+            .status(200)
+            .json({
+                users
+            });
+
+
     } catch (error) {
         console.log(error);
         response.status(500).json({
@@ -66,5 +122,6 @@ const getUserData = async (request, response) => {
 
 module.exports = {
     profileSetup,
-    getUserData
+    getUserData,
+    getUsers
 }

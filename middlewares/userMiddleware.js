@@ -1,5 +1,5 @@
 const jwtService = require("../services/jwtService");
-const constants = require("../shared/constants");
+const userService = require("../services/userService");
 
 const verifyAuth = async (request, response, next) => {
     try {
@@ -22,10 +22,15 @@ const verifyAuth = async (request, response, next) => {
                             .json({ error: "Token is not valid!" });
                     }
 
-                    const user = constants.users.find(o => o._id === data._id);
-                    console.log("user :", user);
+                    const dbUser = await userService.findUser(
+                        {
+                            _id: data._id
+                        }
+                    );
+                    console.log("user :", dbUser);
+                    console.log("db user expired token array :", dbUser.expiredTokens);
 
-                    if (!user) {
+                    if (!dbUser) {
                         return response
                             .status(401)
                             .json({
@@ -33,13 +38,19 @@ const verifyAuth = async (request, response, next) => {
                             });
                     }
 
-                    if (user.jwt === null) {
+                    if (dbUser?.expiredTokens?.includes(token)) {
+                        return response
+                            .status(401)
+                            .json({ error: "Token has been expired" });
+                    }
+
+                    if (dbUser.jwt === null) {
                         return response
                             .status(401)
                             .json({ error: "Session token not found" });
                     }
 
-                    if (user.jwt !== token) {
+                    if (dbUser.jwt !== token) {
                         return response
                             .status(401)
                             .json({ error: "Token does not match with databse token" });
@@ -52,7 +63,7 @@ const verifyAuth = async (request, response, next) => {
                             .json({ error: "Invalid token" });
                     }
 
-                    request.user = user;
+                    request.user = dbUser;
                     next();
                 }
             );
@@ -72,6 +83,54 @@ const verifyAuth = async (request, response, next) => {
 
 };
 
+const signUpAuth = async (request, response, next) => {
+    try {
+        const { name, password } = request.body;
+
+        console.log("name :", name);
+        console.log("password :", password);
+
+        if (!name || !password) {
+            return response
+                .status(406)
+                .json({
+                    error: "Required fields are missing"
+                });
+        }
+
+        if (password.length<8) {
+            return response
+                .status(406)
+                .json({
+                    error: "password should be min 8 characters long"
+                });
+        }
+
+        const user = await userService.findUser(
+            {
+                name
+            }
+        );
+
+        if (user?.name) {
+            return response
+                .status(400)
+                .json({
+                    error: "user already exist with this name!"
+                });
+        }
+
+        next();
+    } catch (error) {
+        console.log(error);
+        response.status(500).json({
+            error: "Something went wrong",
+        });
+    }
+
+};
+
 module.exports = {
-    verifyAuth
+    verifyAuth,
+    signUpAuth
 };
