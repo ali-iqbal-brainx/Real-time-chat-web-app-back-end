@@ -1,6 +1,6 @@
 const constants = require("../shared/constants");
 const chatService = require("../services/chatService");
-const bcrypt = require("bcryptjs");
+const utils = require("../utils/helperFunctions");
 const { default: mongoose } = require("mongoose");
 
 
@@ -19,8 +19,23 @@ const createPrivateGroup = async (request, response) => {
                 });
         }
 
-        const chatCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const chatCode = utils.generateChatCode();
         console.log("chat code :", chatCode);
+
+        const chat = await chatService.findPrivateGroup(
+            {
+                chatCode
+            }
+        );
+
+        if (chat?._id) {
+            return response
+                .status(406)
+                .json({
+                    error: "try creating group with another code"
+                });
+        }
+
 
         const privateGroup = await chatService.createPrivateChat(
             {

@@ -5,11 +5,11 @@ const http = require('http');
 const cors = require('cors');
 const { Server } = require("socket.io");
 const bodyParser = require('body-parser');
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.urlencoded({ limit: process.env.EXPRESS_LIMIT, extended: true }));
 const db = require('./configs/mongoDb');
 const port = process.env.PORT || 4000;
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: process.env.EXPRESS_LIMIT }));
 const corsOrigin = {
     origin: 'http://localhost:3000', //or whatever port your frontend is using
     credentials: true,
