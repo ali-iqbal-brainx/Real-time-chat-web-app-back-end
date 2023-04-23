@@ -14,7 +14,7 @@ const userSchema = new Schema({
         type: String,
         default: null
     },
-    expiredTokens: []
+    expiredTokens: [String]
 });
 
 const user = mongoose.model("user", userSchema);

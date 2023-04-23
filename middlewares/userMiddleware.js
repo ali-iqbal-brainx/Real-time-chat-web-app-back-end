@@ -1,5 +1,6 @@
 const jwtService = require("../services/jwtService");
 const userService = require("../services/userService");
+const constants = require("../shared/constants");
 
 const verifyAuth = async (request, response, next) => {
     try {
@@ -98,11 +99,19 @@ const signUpAuth = async (request, response, next) => {
                 });
         }
 
-        if (password.length<8) {
+        if (password.length < 8) {
             return response
                 .status(406)
                 .json({
                     error: "password should be min 8 characters long"
+                });
+        }
+
+        if (!constants.shared.passwordRegex.test(password)) {
+            return response
+                .status(406)
+                .json({
+                    error: "password should contain at least one lower and upper-case letter, one number and one special character"
                 });
         }
 

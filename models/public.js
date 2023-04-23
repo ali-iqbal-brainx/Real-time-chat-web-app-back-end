@@ -19,7 +19,7 @@ const publicSchema = new Schema({
                 ref: "users",
                 require: true
             },
-            seenBy: [],
+            seenBy: [ObjectId],
             message: {
                 type: String,
                 required: true,
