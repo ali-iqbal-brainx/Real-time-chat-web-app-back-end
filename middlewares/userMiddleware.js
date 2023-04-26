@@ -29,7 +29,6 @@ const verifyAuth = async (request, response, next) => {
                         }
                     );
                     console.log("user :", dbUser);
-                    console.log("db user expired token array :", dbUser.expiredTokens);
 
                     if (!dbUser) {
                         return response
