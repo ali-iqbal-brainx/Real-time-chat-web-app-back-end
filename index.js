@@ -76,4 +76,7 @@ io.on("connection", (socket) => {
     socket.on("disconnect", () => {
         console.log("User disconnected :", socket.id);
     });
+
+    socket.on('connect_error', err => { console.log("socket connect_error :", err) });
+    socket.on('connect_failed', err => { console.log("socket connect_failed :", err) });
 });
