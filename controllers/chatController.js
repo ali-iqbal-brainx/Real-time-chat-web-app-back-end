@@ -218,6 +218,8 @@ const getPublicChatData = async (request, response) => {
                             _id: "$messages._id",
                             seenBy: "$messages.seenBy",
                             message: "$messages.message",
+                            updatedAt: "$messages.updatedAt",
+                            createdAt: "$messages.createdAt",
                             userDetails: "$details"
                         }
                     }
@@ -253,7 +255,7 @@ const postMessage = async (request, response) => {
                 });
         }
 
-        let chat = { _id: new mongoose.Types.ObjectId(), seenBy: [user._id], userId: user._id, message: message };
+        let chat = { _id: new mongoose.Types.ObjectId(), seenBy: [user._id], userId: user._id, message: message, createdAt: Date.now(), updatedAt: Date.now() };
         const publicGroup = await chatService.updatePublicChat(
             {
                 name: constants.shared.publicChatName
@@ -317,7 +319,7 @@ const postPrivateGroupMsg = async (request, response) => {
 
         } else if (privateGroup.ids.includes(user._id)) {
 
-            let chat = { _id: new mongoose.Types.ObjectId(), userId: user._id, seenBy: [user._id], message: message };
+            let chat = { _id: new mongoose.Types.ObjectId(), userId: user._id, seenBy: [user._id], message: message, createdAt: Date.now(), updatedAt: Date.now() };
             const updatedChat = await chatService.updatePrivateChat(
                 {
                     _id: groupId
@@ -477,6 +479,8 @@ const getPrivateChatData = async (request, response) => {
                                 _id: "$messages._id",
                                 seenBy: "$messages.seenBy",
                                 message: "$messages.message",
+                                createdAt: "$messages.createdAt",
+                                updatedAt: "$messages.updatedAt",
                                 userDetails: "$details"
                             }
                         }
@@ -578,102 +582,6 @@ const listAllChats = async (request, response) => {
                 $sort: { unseenCount: 1 }
             }
         ]);
-        //     {
-        //         $addFields: {
-        //             userId: user._id
-        //         }
-        //     },
-        //     {
-        //         $match: {
-        //             $expr: {
-        //                 $setIsSubset: [
-        //                     [user._id],
-        //                     "$ids"
-        //                 ]
-        //             }
-        //         }
-        //     },
-        //     {
-        //         $project: {
-        //             _id: 1,
-        //             name: 1,
-        //             chatCode: 1,
-        //             adminId: 1,
-        //             messages: 1,
-        //             userId: 1,
-        //             unseenCount: {
-        //                 $size: {
-        //                     $filter: {
-        //                         input: "$messages",
-        //                         as: "message",
-        //                         cond: {
-        //                             $not: {
-        //                                 $in: ["$userId", "$$message.seenBy"]
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     },
-        //     {
-        //         $unwind: {
-        //             path: "$messages"
-        //         }
-        //     },
-        //     {
-        //         $lookup: {
-        //             from: "users",
-        //             let: { usrId: "$messages.userId" },
-        //             pipeline: [
-        //                 {
-        //                     $match: {
-        //                         $expr: {
-        //                             $eq: ["$_id", "$$usrId"]
-        //                         }
-        //                     }
-        //                 },
-        //                 {
-        //                     $project: {
-        //                         name: 1,
-        //                     }
-        //                 }
-        //             ],
-        //             as: "details"
-        //         }
-        //     },
-        //     {
-        //         $unwind: {
-        //             path: '$details',
-        //             preserveNullAndEmptyArrays: true
-        //         }
-        //     },
-        //     {
-        //         $group: {
-        //             _id: "$_id",
-        //             unseenCount: {
-        //                 $first: "$unseenCount"
-        //             },
-        //             name: {
-        //                 $first: "$name"
-        //             },
-        //             chatCode: {
-        //                 $first: "$chatCode"
-        //             },
-        //             adminId: {
-        //                 $first: "$adminId"
-        //             },
-        //             messages: {
-        //                 $push: {
-        //                     _id: "$messages._id",
-        //                     seenBy: "$messages.seenBy",
-        //                     message: "$messages.message",
-        //                     userDetails: "$details"
-        //                 }
-        //             }
-        //         }
-        //     }
-        // ]);
 
         const privateChatAggr = await chatService.privateChatAggregate([
             {
@@ -731,139 +639,6 @@ const listAllChats = async (request, response) => {
                 $sort: { name: 1 }
             }
         ]);
-        //     {
-        //         $match: {
-        //             $expr: {
-        //                 $setIsSubset: [
-        //                     [user._id],
-        //                     "$ids"
-        //                 ]
-        //             }
-        //         }
-        //     },
-        //     {
-        //         $addFields: {
-        //             userId: user._id
-        //         }
-        //     },
-        //     {
-        //         $project: {
-        //             _id: 1,
-        //             messages: 1,
-        //             userId: 1,
-        //             ids: 1,
-        //             unseenCount: {
-        //                 $size: {
-        //                     $filter: {
-        //                         input: "$messages",
-        //                         as: "message",
-        //                         cond: {
-        //                             $not: {
-        //                                 $in: ["$userId", "$$message.seenBy"]
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     },
-        //     { "$unwind": "$ids" },
-        //     {
-
-        //         "$lookup": {
-        //             from: "users",
-        //             let: { usrs: "$ids" },
-        //             pipeline: [
-        //                 {
-        //                     $match: {
-        //                         $expr:
-        //                         {
-        //                             $eq: ["$_id", "$$usrs"]
-        //                         }
-        //                     }
-        //                 },
-        //                 {
-        //                     $project: {
-        //                         _id: 0,
-        //                         name: 1,
-        //                     }
-        //                 }
-        //             ],
-        //             as: "names"
-        //         }
-        //     },
-        //     { "$unwind": "$names" },
-        //     {
-        //         "$group": {
-        //             "_id": "$_id",
-        //             "ids": { "$push": "$ids" },
-        //             "names": { "$push": "$names" },
-        //             "messages": {
-        //                 $first: "$messages"
-        //             },
-        //             "unseenCount": {
-        //                 $first: "$unseenCount"
-        //             },
-        //             "userId": {
-        //                 $first: "$userId"
-        //             },
-        //         }
-        //     },
-        //     {
-        //         $unwind: {
-        //             path: "$messages"
-        //         }
-        //     },
-        //     {
-        //         $lookup: {
-        //             from: "users",
-        //             let: { usrId: "$messages.userId" },
-        //             pipeline: [
-        //                 {
-        //                     $match: {
-        //                         $expr: {
-        //                             $eq: ["$_id", "$$usrId"]
-        //                         }
-        //                     }
-        //                 },
-        //                 {
-        //                     $project: {
-        //                         name: 1,
-        //                     }
-        //                 }
-        //             ],
-        //             as: "details"
-        //         }
-        //     },
-        //     {
-        //         $unwind: {
-        //             path: '$details',
-        //             preserveNullAndEmptyArrays: true
-        //         }
-        //     },
-        //     {
-        //         $group: {
-        //             _id: "$_id",
-        //             ids: {
-        //                 $first: "$ids"
-        //             },
-        //             names: {
-        //                 $first: "$names"
-        //             },
-        //             unseenCount: {
-        //                 $first: "$unseenCount"
-        //             },
-        //             messages: {
-        //                 $push: {
-        //                     _id: "$messages._id",
-        //                     seenBy: "$messages.seenBy",
-        //                     message: "$messages.message",
-        //                     userDetails: "$details"
-        //                 }
-        //             }
-        //         }
-        //     }
-        // ]);
 
         const oneToOneChatAggr = await chatService.oneToOneChatAggregate([
             {
@@ -1127,6 +902,8 @@ const getOneToOneChatData = async (request, response) => {
                                 _id: "$messages._id",
                                 seenBy: "$messages.seenBy",
                                 message: "$messages.message",
+                                createdAt: "$messages.createdAt",
+                                updatedAt: "$messages.updatedAt",
                                 userDetails: "$details"
                             }
                         }
@@ -1196,7 +973,7 @@ const postOneToOneGroupMsg = async (request, response) => {
 
         } else if (oneToOneChat.ids.includes(user._id)) {
 
-            let chat = { _id: new mongoose.Types.ObjectId(), userId: user._id, seenBy: [user._id], message: message };
+            let chat = { _id: new mongoose.Types.ObjectId(), userId: user._id, seenBy: [user._id], message: message, createdAt: Date.now(), updatedAt: Date.now() };
 
             const updatedChat = await chatService.updateOneToOneChat(
                 {
