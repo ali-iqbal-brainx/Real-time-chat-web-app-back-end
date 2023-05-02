@@ -550,6 +550,8 @@ const listAllChats = async (request, response) => {
                                 _id: "$$msg._id",
                                 message: "$$msg.message",
                                 seenBy: "$$msg.seenBy",
+                                updatedAt: "$$msg.updatedAt",
+                                createdAt: "$$msg.createdAt",
                                 userDetails: {
                                     $arrayElemAt: [
                                         { $filter: { input: "$userDetails", cond: { $eq: ["$$this._id", "$$msg.userId"] } } },
@@ -577,9 +579,6 @@ const listAllChats = async (request, response) => {
                 $project: {
                     userDetails: 0
                 }
-            },
-            {
-                $sort: { unseenCount: 1 }
             }
         ]);
 
@@ -607,6 +606,8 @@ const listAllChats = async (request, response) => {
                                 _id: "$$msg._id",
                                 message: "$$msg.message",
                                 seenBy: "$$msg.seenBy",
+                                updatedAt: "$$msg.updatedAt",
+                                createdAt: "$$msg.createdAt",
                                 userDetails: {
                                     $arrayElemAt: [
                                         { $filter: { input: "$userDetails", cond: { $eq: ["$$this._id", "$$msg.userId"] } } },
@@ -634,9 +635,6 @@ const listAllChats = async (request, response) => {
                 $project: {
                     userDetails: 0
                 }
-            },
-            {
-                $sort: { name: 1 }
             }
         ]);
 
@@ -700,6 +698,8 @@ const listAllChats = async (request, response) => {
                                 _id: "$$msg._id",
                                 message: "$$msg.message",
                                 seenBy: "$$msg.seenBy",
+                                updatedAt: "$$msg.updatedAt",
+                                createdAt: "$$msg.createdAt",
                                 userDetails: {
                                     $arrayElemAt: [
                                         { $filter: { input: "$userDetails", cond: { $eq: ["$$this._id", "$$msg.userId"] } } },
@@ -731,20 +731,22 @@ const listAllChats = async (request, response) => {
                         }
                     }
                 }
-            },
-            {
-                $sort: {
-                    _id: 1
-                }
             }
         ]);
+
+        let allChats = publicChatAggr.concat(oneToOneChatAggr, privateChatAggr);
+        console.log("all chats :", allChats);
+
+        allChats.sort((a, b) => {
+            const aUpdatedAt = a.messages.length > 0 ? a.messages[a.messages.length - 1].updatedAt : 0;
+            const bUpdatedAt = b.messages.length > 0 ? b.messages[b.messages.length - 1].updatedAt : 0;
+            return bUpdatedAt - aUpdatedAt;
+        });
 
         return response
             .status(200)
             .json({
-                privateChats: privateChatAggr,
-                oneToOneChats: oneToOneChatAggr,
-                publicChat: publicChatAggr
+                allChats
             });
 
 
