@@ -13,37 +13,10 @@ const privateSchema = new Schema({
     },
     adminId: {
         type: ObjectId,
-        ref: "users",
+        ref: "user",
         required: true,
     },
-    ids: [],
-    messages: [
-        {
-            _id: {
-                type: ObjectId,
-                require: true,
-                default: new ObjectId()
-            },
-            userId: {
-                type: ObjectId,
-                ref: "users",
-                require: true
-            },
-            seenBy: [],
-            message: {
-                type: String,
-                required: true,
-            },
-            createdAt: {
-                type: Date,
-                default: Date.now
-            },
-            updatedAt: {
-                type: Date,
-                default: Date.now
-            }
-        }
-    ],
+    ids: []
 });
 
 const private = mongoose.model("private", privateSchema);

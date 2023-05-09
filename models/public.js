@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const ObjectId = mongoose.Types.ObjectId;
 const constants = require("../shared/constants");
 
 const publicSchema = new Schema({
@@ -8,32 +7,6 @@ const publicSchema = new Schema({
         type: String,
         enum: constants.shared.publicChatName
     },
-    messages: [
-        {
-            _id: {
-                type: ObjectId,
-                require: true,
-            },
-            userId: {
-                type: ObjectId,
-                ref: "users",
-                require: true
-            },
-            seenBy: [ObjectId],
-            message: {
-                type: String,
-                required: true,
-            },
-            createdAt: {
-                type: Date,
-                default: Date.now
-            },
-            updatedAt: {
-                type: Date,
-                default: Date.now
-            }
-        }
-    ],
     chatCode: {
         type: String,
         enum: constants.shared.publicChatCode

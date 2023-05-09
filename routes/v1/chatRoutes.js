@@ -20,6 +20,6 @@ router.get("/get-one-to-one-chat-data/:id/:chk", userMiddleware.verifyAuth, chat
 router.post("/append-message-one-to-one/:id", userMiddleware.verifyAuth, chatController.postOneToOneGroupMsg);
 
 //see message
-router.post("/see-message/:id1/:id2/:type", userMiddleware.verifyAuth, chatController.seeMessage);
+router.post("/see-message/:id1", userMiddleware.verifyAuth, chatController.seeMessage);
 
 module.exports = router;

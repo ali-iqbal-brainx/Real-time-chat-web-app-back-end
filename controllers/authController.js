@@ -115,9 +115,8 @@ const signup = async (request, response) => {
 
             for (let i = 0; i < allUsers.length; i++) {
                 chats.push({
-                    "ids": [user._id, allUsers[i]._id],
-                    "messages": []
-                })
+                    "ids": [user._id, allUsers[i]._id]
+                });
             }
 
             console.log(await chatService.insertOneToOneMany(chats));
