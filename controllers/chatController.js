@@ -1,5 +1,6 @@
 const constants = require("../shared/constants");
 const chatService = require("../services/chatService");
+const messageService = require("../services/messageService");
 const utils = require("../utils/helperFunctions");
 const { default: mongoose } = require("mongoose");
 
@@ -13,7 +14,7 @@ const createPrivateGroup = async (request, response) => {
 
         if (!name) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required field is missing"
                 });
@@ -30,7 +31,7 @@ const createPrivateGroup = async (request, response) => {
 
         if (chat?._id) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "try creating group with another code"
                 });
@@ -42,8 +43,7 @@ const createPrivateGroup = async (request, response) => {
                 "adminId": user._id,
                 "ids": [user._id],
                 "name": name,
-                "chatCode": chatCode,
-                "messages": []
+                "chatCode": chatCode
             }
         );
         console.log("private group chat :", privateGroup);
@@ -78,7 +78,7 @@ const joinPrivateChatGroup = async (request, response) => {
 
         if (!code) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required field is missing"
                 });
@@ -137,7 +137,7 @@ const getPublicChatData = async (request, response) => {
 
         if (!chk) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required field is missing"
                 });
@@ -145,29 +145,33 @@ const getPublicChatData = async (request, response) => {
 
         console.log("in get public chat data controller");
 
-        let publicGroup;
         // see all msg by the curr user
         if (chk) {
 
-            publicGroup = await chatService.updatePublicChat(
-                {
-                    chatCode: constants.shared.publicChatCode
-                },
-                {
-                    $addToSet: { "messages.$[].seenBy": user._id }
-                },
-                {
-                    new: true
-                }
+            console.log("updated doc count :",
+                await messageService.updateMessages(
+                    {
+                        chatType: constants.shared.chatType.public
+                    },
+                    {
+                        $addToSet: { seenBy: user._id }
+                    }
+                )
             );
-
         }
-        console.log("public chat :", publicGroup);
 
         const publicChatAggr = await chatService.publicChatAggregate([
             {
                 $match: {
                     chatCode: constants.shared.publicChatCode
+                }
+            },
+            {
+                $lookup: {
+                    from: "messages",
+                    localField: "_id",
+                    foreignField: "chatId",
+                    as: "messages"
                 }
             },
             {
@@ -249,35 +253,32 @@ const postMessage = async (request, response) => {
 
         if (!message) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required field is missing"
                 });
         }
 
-        let chat = { _id: new mongoose.Types.ObjectId(), seenBy: [user._id], userId: user._id, message: message, createdAt: Date.now(), updatedAt: Date.now() };
-        const publicGroup = await chatService.updatePublicChat(
+        const publicGroup = await chatService.findPublicChat(
             {
-                name: constants.shared.publicChatName
-            },
-            {
-                $push: {
-                    messages: chat
-                }
-            },
-            {
-                new: true
+                chatCode: constants.shared.publicChatCode
             }
         );
-        console.log("public chat after appending message :", publicGroup);
 
-        delete chat.userId;
-        chat['userDetails'] = { _id: user._id, name: user.name };
+        if (!publicGroup) {
+            return response
+                .status(404)
+                .json({
+                    error: "Chat does not exist!"
+                });
+        }
+
+        const msg = await utils.postMessage(publicGroup, constants.shared.chatType.public, user, message);
 
         return response
             .status(200)
             .json({
-                chat
+                msg
             });
 
 
@@ -297,7 +298,7 @@ const postPrivateGroupMsg = async (request, response) => {
 
         if (!message || !groupId) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required fields are missing"
                 });
@@ -319,27 +320,12 @@ const postPrivateGroupMsg = async (request, response) => {
 
         } else if (privateGroup.ids.includes(user._id)) {
 
-            let chat = { _id: new mongoose.Types.ObjectId(), userId: user._id, seenBy: [user._id], message: message, createdAt: Date.now(), updatedAt: Date.now() };
-            const updatedChat = await chatService.updatePrivateChat(
-                {
-                    _id: groupId
-                },
-                {
-                    $push: { messages: chat }
-                },
-                {
-                    new: true
-                }
-            );
-            console.log("updted chat msgs :", updatedChat.messages);
-
-            delete chat.userId;
-            chat['userDetails'] = { _id: user._id, name: user.name };
+            const msg = await utils.postMessage(privateGroup, constants.shared.chatType.private, user, message);
 
             return response
                 .status(200)
                 .json({
-                    chat
+                    msg
                 });
 
         } else {
@@ -369,7 +355,7 @@ const getPrivateChatData = async (request, response) => {
 
         if (!id || !check) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required params are missing"
                 });
@@ -397,21 +383,7 @@ const getPrivateChatData = async (request, response) => {
             // see all msg by the curr user
             if (check) {
 
-                privateGroup = await chatService.updatePrivateChat(
-                    {
-                        $or: [
-                            { _id: id },
-                            { chatCode: id }
-                        ]
-                    },
-                    {
-                        $addToSet: { "messages.$[].seenBy": user._id }
-                    },
-                    {
-                        new: true
-                    }
-                );
-                console.log("private chat :", privateGroup);
+                console.log("updated doc count :", await utils.seenAllMessages(id, user));
 
             }
 
@@ -423,6 +395,14 @@ const getPrivateChatData = async (request, response) => {
                             { chatCode: id }
                         ]
 
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "messages",
+                        localField: "_id",
+                        foreignField: "chatId",
+                        as: "messages"
                     }
                 },
                 {
@@ -534,6 +514,14 @@ const listAllChats = async (request, response) => {
             },
             {
                 $lookup: {
+                    from: "messages",
+                    localField: "_id",
+                    foreignField: "chatId",
+                    as: "messages"
+                }
+            },
+            {
+                $lookup: {
                     from: "users",
                     localField: "messages.userId",
                     foreignField: "_id",
@@ -591,6 +579,14 @@ const listAllChats = async (request, response) => {
             },
             {
                 $lookup: {
+                    from: "messages",
+                    localField: "_id",
+                    foreignField: "chatId",
+                    as: "messages"
+                }
+            },
+            {
+                $lookup: {
                     from: "users",
                     localField: "messages.userId",
                     foreignField: "_id",
@@ -644,6 +640,14 @@ const listAllChats = async (request, response) => {
             {
                 $match: {
                     ids: { $in: [user._id] } // Match documents that contain the user's ID in the ids array
+                }
+            },
+            {
+                $lookup: {
+                    from: "messages",
+                    localField: "_id",
+                    foreignField: "chatId",
+                    as: "messages"
                 }
             },
             { "$unwind": "$ids" },
@@ -764,7 +768,7 @@ const getOneToOneChatData = async (request, response) => {
 
         if (!id || !check) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required params are missing"
                 });
@@ -792,20 +796,7 @@ const getOneToOneChatData = async (request, response) => {
 
             if (check) {
 
-                oneToOneChat = await chatService.updateOneToOneChat(
-                    {
-                        $or: [
-                            { _id: id },
-                            { chatCode: id }
-                        ]
-                    },
-                    {
-                        $addToSet: { "messages.$[].seenBy": user._id }
-                    },
-                    {
-                        new: true
-                    }
-                );
+                console.log("updated doc count :", await utils.seenAllMessages(id, user));
 
             }
 
@@ -816,6 +807,14 @@ const getOneToOneChatData = async (request, response) => {
                             { _id: new mongoose.Types.ObjectId(id) },
                             { chatCode: id }
                         ]
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "messages",
+                        localField: "_id",
+                        foreignField: "chatId",
+                        as: "messages"
                     }
                 },
                 { "$unwind": "$ids" },
@@ -951,7 +950,7 @@ const postOneToOneGroupMsg = async (request, response) => {
 
         if (!message || !id) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required fields are missing"
                 });
@@ -973,28 +972,12 @@ const postOneToOneGroupMsg = async (request, response) => {
 
         } else if (oneToOneChat.ids.includes(user._id)) {
 
-            let chat = { _id: new mongoose.Types.ObjectId(), userId: user._id, seenBy: [user._id], message: message, createdAt: Date.now(), updatedAt: Date.now() };
-
-            const updatedChat = await chatService.updateOneToOneChat(
-                {
-                    _id: oneToOneChat._id
-                },
-                {
-                    $push: { messages: chat }
-                },
-                {
-                    new: true
-                }
-            );
-            console.log("updted chat msgs :", updatedChat.messages);
-
-            delete chat.userId;
-            chat['userDetails'] = { _id: user._id, name: user.name };
+            const msg = await utils.postMessage(oneToOneChat, constants.shared.chatType.oneToOne, user, message);
 
             return response
                 .status(200)
                 .json({
-                    chat
+                    msg
                 });
 
         } else {
@@ -1025,7 +1008,7 @@ const leaveGroup = async (request, response) => {
 
         if (!chatId) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required field is missing"
                 });
@@ -1075,14 +1058,14 @@ const leaveGroup = async (request, response) => {
 
 const deleteGroup = async (request, response) => {
     try {
-        const user = request.user
+        const user = request.user;
         const chatId = request.params.id;
 
         console.log("group to delete id :", chatId);
 
         if (!chatId) {
             return response
-                .status(406)
+                .status(422)
                 .json({
                     error: "Required field is missing"
                 });
@@ -1115,6 +1098,12 @@ const deleteGroup = async (request, response) => {
                     _id: chatId
                 }
             );
+            //remove all messages related to group
+            await messageService.deleteMessages(
+                {
+                    chatId
+                }
+            );
             console.log("group deleted successfully!");
 
             return response
@@ -1136,97 +1125,33 @@ const deleteGroup = async (request, response) => {
 const seeMessage = async (request, response) => {
     try {
         const user = request.user;
-        const chatId = request.params.id1;
-        const msgId = request.params.id2;
-        const chatType = request.params.type;
+        const msgId = request.params.id1;
 
-        console.log("chat id :", chatId);
         console.log("msg id :", msgId);
-        console.log("chat type :", chatType);
 
-        if (!chatId || !msgId || !chatType) {
+        if (!msgId) {
             return response
-                .status(406)
+                .status(422)
                 .json({
-                    error: "Required fields is missing"
+                    error: "Required field is missing"
                 });
         }
 
-
-        switch (chatType) {
-            case "PUBLIC": {
-                console.log("public chat type");
-                await chatService.updatePublicChat(
-                    { "_id": chatId, "messages._id": msgId },
-                    {
-                        "$push": { "messages.$.seenBy": user._id }
-                    }
-                );
-                break;
+        const msgUpdatedCount = await messageService.updateMessages(
+            { "_id": msgId },
+            {
+                "$addToSet": { "seenBy": user._id }
             }
+        );
 
-            case "PRIVATE": {
-                console.log("private chat type");
-                const privateChat = await chatService.findPrivateGroup(
-                    {
-                        _id: chatId
-                    }
-                );
-
-                if (!privateChat) {
-                    return response
-                        .status(400)
-                        .json({
-                            error: "group with this id does not exist"
-                        })
-                }
-                //push user id in seen by array
-                await chatService.updatePrivateChat(
-                    { "_id": chatId, "messages._id": msgId },
-                    {
-                        "$push": { "messages.$.seenBy": user._id }
-                    }
-                );
-                break;
-            }
-
-            case "ONE_TO_ONE": {
-                console.log("one to one chat type");
-
-                const oneToOneChat = await chatService.findOneToOneChat(
-                    {
-                        _id: chatId
-                    }
-                );
-
-                if (!oneToOneChat) {
-                    return response
-                        .status(400)
-                        .json({
-                            error: "group with this id does not exist"
-                        })
-                }
-                //push user id in seen by array
-                const updatedDoc = await chatService.updateOneToOneChat(
-                    { "_id": chatId, "messages._id": msgId },
-                    {
-                        "$push": { "messages.$.seenBy": user._id }
-                    },
-                    { new: true }
-                );
-                console.log(">>>>>>>>>>>>>>>>>Updated doc<<<<<<<<<<<<<", updatedDoc);
-                break;
-            }
-
-            default: {
-                return response
-                    .status(400)
-                    .json({
-                        error: "Invalid chat type"
-                    });
-            }
-
+        if (!msgUpdatedCount) {
+            return response
+                .status(400)
+                .json({
+                    error: "Either chat or msg id is invalid or outdated!"
+                });
         }
+
 
         return response
             .status(200)
@@ -1241,7 +1166,6 @@ const seeMessage = async (request, response) => {
         });
     }
 }
-
 
 module.exports = {
     createPrivateGroup,
