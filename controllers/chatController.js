@@ -274,7 +274,7 @@ const postMessage = async (request, response) => {
         }
 
         const msg = await utils.postMessage(publicGroup, constants.shared.chatType.public, user, message);
-
+        
         return response
             .status(200)
             .json({

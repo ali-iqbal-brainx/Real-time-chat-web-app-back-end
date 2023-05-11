@@ -49,6 +49,7 @@ const postMessage = async (chat, chatType, user, message) => {
     msg['userDetails'] = { _id: user._id, name: user.name };
     msg['createdAt'] = messageObj.createdAt;
     msg['updatedAt'] = messageObj.updatedAt;
+    msg['_id'] = messageObj._id;
 
     return msg;
 
