@@ -44,7 +44,7 @@ const profileSetup = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -79,7 +79,7 @@ const getUserData = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -114,7 +114,7 @@ const getUsers = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
