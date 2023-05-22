@@ -1,9 +1,9 @@
 const constants = require("../shared/constants");
 const chatService = require("../services/chatService");
 const messageService = require("../services/messageService");
+const userService = require("../services/userService");
 const utils = require("../utils/helperFunctions");
 const { default: mongoose } = require("mongoose");
-
 
 const createPrivateGroup = async (request, response) => {
     try {
@@ -63,7 +63,7 @@ const createPrivateGroup = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -124,7 +124,7 @@ const joinPrivateChatGroup = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -240,7 +240,7 @@ const getPublicChatData = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -274,7 +274,7 @@ const postMessage = async (request, response) => {
         }
 
         const msg = await utils.postMessage(publicGroup, constants.shared.chatType.public, user, message);
-        
+
         return response
             .status(200)
             .json({
@@ -284,7 +284,7 @@ const postMessage = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -341,7 +341,7 @@ const postPrivateGroupMsg = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -495,7 +495,7 @@ const getPrivateChatData = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -756,7 +756,7 @@ const listAllChats = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -938,7 +938,7 @@ const getOneToOneChatData = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -995,7 +995,7 @@ const postOneToOneGroupMsg = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -1052,7 +1052,7 @@ const leaveGroup = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -1118,7 +1118,7 @@ const deleteGroup = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -1163,7 +1163,143 @@ const seeMessage = async (request, response) => {
 
     } catch (error) {
         console.log(error);
-        response.status(500).json({
+        return response.status(500).json({
+            error: "Something went wrong",
+        });
+    }
+}
+
+const getUsers = async (request, response) => {
+    try {
+        const { id, chatType } = request.params;
+
+        if (!id || !chatType) {
+            return response
+                .status(422)
+                .json({
+                    error: "Required params are missing"
+                });
+        }
+
+        let usersData;
+        if (chatType === constants.shared.chatType.public) {
+
+            usersData = await userService.userAggregate([
+                {
+                    $match: {}
+                },
+                {
+                    $project: { name: 1 }
+                }
+            ]);
+
+        } else {
+
+            const privateGroup = await chatService.findPrivateGroup(
+                {
+                    $or: [
+                        { _id: id },
+                        { chatCode: id }
+                    ]
+                }
+            );
+
+            if (!privateGroup) {
+                return response
+                    .status(404)
+                    .json({
+                        error: "group does not exist!"
+                    });
+            }
+
+            // get users data through aggregation
+            usersData = await userService.userAggregate([
+                {
+                    $match: { _id: { $in: privateGroup.ids } }
+                },
+                {
+                    $project: { name: 1 }
+                }
+            ]);
+            console.log("Users :", usersData);
+
+        }
+
+        return response
+            .status(200)
+            .json({
+                usersData
+            });
+
+    } catch (error) {
+        console.log(error);
+        return response.status(500).json({
+            error: "Something went wrong",
+        });
+    }
+}
+
+const removeMember = async (request, response) => {
+    try {
+        const user = request.user;
+        const { id, userId } = request.params;
+
+        if (!id || !userId) {
+            return response
+                .status(422)
+                .json({
+                    error: "Required params are missing"
+                });
+        }
+
+        const privateGroup = await chatService.findPrivateGroup(
+            {
+                $or: [
+                    { _id: id },
+                    { chatCode: id }
+                ]
+            }
+        );
+
+        if (!privateGroup) {
+            return response
+                .status(400)
+                .json({
+                    error: "invalid chat id"
+                });
+        } else if (privateGroup.adminId.toString() === user._id.toString()) {
+            //remove user id from ids array in group
+            await chatService.updatePrivateChat(
+                {
+                    $or: [
+                        { _id: new mongoose.Types.ObjectId(id) },
+                        { chatCode: id }
+                    ]
+                },
+                {
+                    $pull: { ids: new mongoose.Types.ObjectId(userId) }
+                },
+                {
+                    new: true
+                }
+            );
+
+            return response
+                .status(200)
+                .json({
+                    message: "member removed successfully!"
+                });
+        } else {
+            return response
+                .status(400)
+                .json({
+                    error: "user do not have privilege to remove the members from group"
+                })
+        }
+
+    } catch (error) {
+        console.log(error);
+        return response.status(500).json({
             error: "Something went wrong",
         });
     }
@@ -1181,5 +1317,7 @@ module.exports = {
     postOneToOneGroupMsg,
     leaveGroup,
     deleteGroup,
-    seeMessage
+    seeMessage,
+    getUsers,
+    removeMember
 }
