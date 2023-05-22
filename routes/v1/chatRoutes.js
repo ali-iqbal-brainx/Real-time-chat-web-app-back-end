@@ -14,7 +14,7 @@ router.get("/get-private-chat-data/:id/:chk", userMiddleware.verifyAuth, chatCon
 router.post("/append-message-private-group/:id", userMiddleware.verifyAuth, chatController.postPrivateGroupMsg);
 router.put("/leave-private-group/:id", userMiddleware.verifyAuth, chatController.leaveGroup);
 router.delete("/delete-group/:id", userMiddleware.verifyAuth, chatController.deleteGroup);
-router.post("/get-private-chat-users-data/:id", userMiddleware.verifyAuth, chatController.getUsers);
+router.get("/get-private-chat-users-data/:id/:chatType", userMiddleware.verifyAuth, chatController.getUsers);
 router.put("/remove-member/:id/:userId", userMiddleware.verifyAuth, chatController.removeMember);
 
 //one to one group

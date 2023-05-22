@@ -1171,50 +1171,51 @@ const seeMessage = async (request, response) => {
 
 const getUsers = async (request, response) => {
     try {
-        const user = request.user;
-        const id = request.params.id;
-        let { ids } = request.body;
+        const { id, chatType } = request.params;
 
-        if (!id || !ids) {
+        if (!id || !chatType) {
             return response
                 .status(422)
                 .json({
-                    error: "Required param and field is missing"
+                    error: "Required params are missing"
                 });
         }
 
-        let privateGroup = await chatService.findPrivateGroup(
-            {
-                $or: [
-                    { _id: id },
-                    { chatCode: id }
-                ]
-            }
-        );
+        let usersData;
+        if (chatType === constants.shared.chatType.public) {
 
-        if (!privateGroup) {
-
-            return response
-                .status(400)
-                .json({
-                    error: "private group does not exist"
-                });
-
-        } else if (privateGroup.adminId.toString() === user._id.toString()) {
-
-            // convert string to object id type
-            for (let i = 0; i < ids.length; i++) {
-                ids[i] = new mongoose.Types.ObjectId(ids[i]);
-            }
-            // get users data of ids through aggregation
-            const usersData = await userService.userAggregate([
+            usersData = await userService.userAggregate([
                 {
-                    $match: {
-                        $and: [
-                            { _id: { $in: ids } }
-                        ]
+                    $match: {}
+                },
+                {
+                    $project: { name: 1 }
+                }
+            ]);
 
-                    }
+        } else {
+
+            const privateGroup = await chatService.findPrivateGroup(
+                {
+                    $or: [
+                        { _id: id },
+                        { chatCode: id }
+                    ]
+                }
+            );
+
+            if (!privateGroup) {
+                return response
+                    .status(404)
+                    .json({
+                        error: "group does not exist!"
+                    });
+            }
+
+            // get users data through aggregation
+            usersData = await userService.userAggregate([
+                {
+                    $match: { _id: { $in: privateGroup.ids } }
                 },
                 {
                     $project: { name: 1 }
@@ -1222,21 +1223,13 @@ const getUsers = async (request, response) => {
             ]);
             console.log("Users :", usersData);
 
-            return response
-                .status(200)
-                .json({
-                    usersData
-                });
-
-        } else {
-
-            return response
-                .status(400)
-                .json({
-                    error: "user do not have privilege to access this page"
-                });
-
         }
+
+        return response
+            .status(200)
+            .json({
+                usersData
+            });
 
     } catch (error) {
         console.log(error);
@@ -1250,8 +1243,6 @@ const removeMember = async (request, response) => {
     try {
         const user = request.user;
         const { id, userId } = request.params;
-
-        console.log(request.params);
 
         if (!id || !userId) {
             return response
@@ -1278,7 +1269,7 @@ const removeMember = async (request, response) => {
                 });
         } else if (privateGroup.adminId.toString() === user._id.toString()) {
             //remove user id from ids array in group
-            const c = await chatService.updatePrivateChat(
+            await chatService.updatePrivateChat(
                 {
                     $or: [
                         { _id: new mongoose.Types.ObjectId(id) },
@@ -1286,14 +1277,12 @@ const removeMember = async (request, response) => {
                     ]
                 },
                 {
-                    $pull: { ids: userId }
+                    $pull: { ids: new mongoose.Types.ObjectId(userId) }
                 },
                 {
                     new: true
                 }
             );
-            console.log(c);
-            console.log("member removed successfully!");
 
             return response
                 .status(200)
