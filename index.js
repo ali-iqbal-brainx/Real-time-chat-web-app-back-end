@@ -77,6 +77,11 @@ io.on("connection", (socket) => {
         console.log("User disconnected :", socket.id);
     });
 
+    socket.on("typing", (data) => {
+        console.log("user typing :", data);
+        socket.to(data?.roomId).emit("user_typing", data);
+    });
+
     socket.on('connect_error', err => { console.error("socket connect_error :", err) });
     socket.on('connect_failed', err => { console.error("socket connect_failed :", err) });
 });

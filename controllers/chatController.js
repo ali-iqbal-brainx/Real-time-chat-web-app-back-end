@@ -1094,18 +1094,20 @@ const deleteGroup = async (request, response) => {
                         error: "User do not have privilege to delete this group"
                     });
             }
-            //remove group
-            await chatService.deletePrivateChat(
-                {
-                    _id: chatId
-                }
-            );
-            //remove all messages related to group
-            await messageService.deleteMessages(
-                {
-                    chatId
-                }
-            );
+
+            //remove group and remove all messages related to group
+            await Promise.all([
+                chatService.deletePrivateChat(
+                    {
+                        _id: chatId
+                    }
+                ),
+                messageService.deleteMessages(
+                    {
+                        chatId
+                    }
+                )
+            ]);
             console.log("group deleted successfully!");
 
             return response
